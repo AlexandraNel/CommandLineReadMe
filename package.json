@@ -1,0 +1,14 @@
+{
+  "name": "commandlinereadme",
+  "version": "1.0.0",
+  "description": "A command line application which auto generates a ReadMe.md file from user input. Utilises node.js to do so.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "inquirer": "^8.2.4"
+  }
+}
