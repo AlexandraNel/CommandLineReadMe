@@ -1,13 +1,12 @@
 // version 8.2.4 of inquirer installed, below fs (file system) and inquirer are required into the project
 const fs = require('fs');
 const inquirer = require('inquirer');
-const { makeBadge } = require('badge-maker') //for creating the license badge svg
-const path = require('path'); //for creating a url for the license badge
+const { makeBadge, ValidationError } = require('badge-maker')
 
 // have created an async function to avoid errors with multiple instances of prompt.questions/then. 
 // also utilising try and catch for error handling
 // have used separate instances of prmpt with async in order to allow for exit of process if answered incorrectly etc
-async function handlePrompts() {
+async function promptQuestions() {
     try {
 
         // first round of questions
@@ -63,11 +62,11 @@ async function handlePrompts() {
         // prompts now using the 'redo' confirm question. if they are happy (answer Y) then we proceeed to the
         //  rest of the questions. using if statement instead of .then in await async function
         if (!secondAnswers.redo) {
-            console.log('You have chosen to start over');
+            console.log('You have chosen to start over')
             // recursive call to begin again, discarding previous user input
             // using return before a recursive call (here) ensures that the flow of process is stopped following this
             // this makes the exit of this code explicit and prevents further execution of the following code
-            return handlePrompts();
+            return promptQuestions();
 
         }
         const thirdAnswers = await inquirer.prompt([
@@ -128,10 +127,17 @@ async function handlePrompts() {
             },
         ]);
 
+        // Once all inputs are collected, generate the badge for the license input (async)
+        const badgePath = await badgeGenerate(thirdAnswers); // Ensure badgeGenerate is awaited
+        //    calling my markdown foramtting function in order to utilise it's returned content. write file required a string in order to write a file- and not a function
+        const fileContent = markdownFormat(firstAnswers, secondAnswers, thirdAnswers, badgePath);
 
-       // firstAnswers, secondAnswers, and thirdAnswers available to use from prompts within an array
-       //first answer will be indexed tto 0, second to 1, and third to 2 etc
-       return [ firstAnswers, secondAnswers, thirdAnswers ];
+try{
+        await fs.promises.writeFile('README.md', fileContent);
+        console.log('Congrats! Your ReadMe file can be found labeled myREADME.md, please check for errors and update within the file itself.')
+}catch (err) {
+console.error('error writing readme', err);           
+        };
 
         // error handling catch from try block
     } catch (error) {
@@ -141,30 +147,7 @@ async function handlePrompts() {
             console.log("An error has occured, please try again", error);
         }
     }
-
 };
-
-//function to generate the badge for the license using the badge-maker npm
-async function badgeGenerate(answers) {
-    //running function to get the abbreviation for our chosen license, passing in the user input from thirdAsnwers.license
-    const licenseCode = licenseName(answers[2].license);
-
-    // method for badge construction from badge-maker
-    const format = {
-        label: 'License',
-        message: licenseCode, //using the variable that runs the abbreviaion function as the message input
-        color: 'brightgreen',
-        style: 'flat',
-    }
-
-    //creates the badge
-    const svg = makeBadge(format);
-    const outputFile = 'license-badge.svg';
-    const outputPath = path.join(__dirname, outputFile);
-
-    await fs.promises.writeFile(outputPath, svg); // Using fs.promises for async/await syntax to be usable
-    return outputPath; //return the path for use in the generation of the license badge
-}
 
 // creating a function that uses the response from teh license list inquirer prompt in order to gain the abbreviation for the licenses optioned.
 function licenseName(fullName) {
@@ -192,43 +175,76 @@ function licenseName(fullName) {
 
 };
 
+//function to generate the badge for the license using the badge-maker npm
+async function badgeGenerate(thirdAnswers) {
+    //running function to get the abbreviation for our chosen license, passing in the user input from thirdAsnwers.license
+    const licenseCode = licenseName(thirdAnswers.license)
+
+    // method for badge construction from badge-maker
+    const format = {
+        label: 'License',
+        message: licenseCode, //using the variable that runs the abbreviaion function as the message input
+        color: 'brightgreen',
+        style: 'flat',
+    }
+
+    //creates the badge
+    const svg = makeBadge(format);
+    const outputFile = 'license-badge.svg';
+    const outputPath = path.join(__dirname, outputFile);
+
+    return fs.writeFile(outputPath, svg)
+        .then(() => outputPath)
+        .catch(err => {
+            console.error("Error writing badge to file", err);
+            throw err;
+        });
+}
+
+
 
 // This function transforms our user data into the required markdown language for the readme file, taking in all sections of answers
 // this function is defined outside of the prompt function, and is called within the try block of the prompt questions function. 
 // this means that we are not nesting unneccessary functions and can utilise this again if required.
-function markdownFormat(answers, badgePath) {
+function markdownFormat(firstAnswers, secondAnswers, thirdAnswers) {
 
     // Here we are formatting our technologies into a markdown list. 
     // As requested, our user has separated each technology with a comma and we use split() to transform these into an array
-    const techList = answers[2].technologies.split(',');
+    const techList = thirdAnswers.technologies.split(',');
     // using map() we take each array item, add a markdown list '-' and then join the array into a string, seperating each item with a line break (\n)
     const techFormat = techList.map(item => `- ${item.trim()}`).join('\n');
 
     // using split method on collaborators, have requested formatting from user entry
-    const creditsList = answers[2].credits.split(',');
+    const creditsList = thirdAnswers.credits.split(',');
     const creditsFormat = creditsList.join('\n');
 
     // we are using a template literal to create an entirely formated object with all of our user input concatenated into markdown for our ReadMe
     // Under Technologies we use our variables created for 'technologies' in the markdown list format we created    
     return `
-# ${answers[0].title}
-![License Badge](${badgePath})
+# ${firstAnswers.title}
+![License Badge] (${badgePath})
         
 ## Description
 
-**Motivation:** ${answers[1].motivationDescription} \n
-**The Why:** ${answers[1].whyDescription} \n
-**Problem Solved:** ${answers[1].problemDescription} \n
-**Lessons:** ${answers[1].learnDescription} \n
+**Motivation:** ${secondAnswers.motivationDescription} \n
+**The Why:** ${secondAnswers.whyDescription} \n
+**Problem Solved:** ${secondAnswers.problemDescription} \n
+**Lessons:** ${secondAnswers.learnDescription} \n
 
 ## Table of Contents
 
-> 1. Technologies \n
-> 2. Installation \n
-> 3. Usage \n
-> 4. Roadmap \n
-> 5. Support \n
-> 6. License \n
+> 1. Technologies
+>
+> 2. Installation
+>
+> 3. Usage 
+>
+> 4. Roadmap 
+>
+> 5. Support
+> 
+> 6. License
+>
 > 7. Tests 
 
 ## Technologies
@@ -237,19 +253,19 @@ ${techFormat}
 
 ## Installation
 
-${answers[2].installation}
+${thirdAnswers.installation}
 
 ## Usage
 
-${answers[2].usage}
+${thirdAnswers.usage}
 
 ## Roadmap
 
-${answers[2].roadmap}
+${thirdAnswers.roadmap}
 
 ## Support
 
-${answers[2].support}
+${thirdAnswers.support}
 
 ## Credits
 
@@ -257,38 +273,16 @@ ${creditsFormat}
 
 ## License
         
-${answers[2].license}
+${thirdAnswers.license}
 
 ## Tests
-${answers[2].tests}
+${thirdAnswers.tests}
 
 `;
 }
 
 
-async function createReadMe() {
-    try {
-        // firstAnswers, secondAnswers, and thirdAnswers objects are available to use from prompts within an array
-        //first answer will be indexed to answers[0], second answers to answers[2], and third answers[2]
-       
-        const answers = await handlePrompts();
-        console.log(answers);
-        // getting the path for the badge created in badge generateasync function
-        const badgePath = await badgeGenerate(answers);
-
-        // getting the file Content to write the file 
-        const fileContent = markdownFormat(answers, badgePath);
-
-        await fs.promises.writeFile('README.md', fileContent);
-        console.log('Congrats! Your README file has been generated.');
-
-    } catch (error) {
-        console.error("An unexpected error occurred:", error);
-    }
-}
-
-
-createReadMe();
+promptQuestions();
 
 
 
