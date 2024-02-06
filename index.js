@@ -6,7 +6,6 @@ const { makeBadge, ValidationError } = require('badge-maker')
 // have created an async function to avoid errors with multiple instances of prompt.questions/then. 
 // also utilising try and catch for error handling
 // have used separate instances of prmpt with async in order to allow for exit of process if answered incorrectly etc
-console
 async function promptQuestions() {
     try {
 
@@ -188,10 +187,20 @@ function badgeGenerate(thirdAnswers) {
         style: 'flat',
     }
 
+    //creates the badge
     const svg = makeBadge(format);
-    //returns our svg badge
-    return svg;
+    const outputFile = 'license-badge.svg';
+    const outputPath = path.join(__dirname, outputFile);
+
+    fs.writeFile(outputPath, svg, err => {
+        if (err) {
+            console.error("Error writing badge to file", err);
+        }
+    });
+    return outputPath
 }
+
+
 
 // This function transforms our user data into the required markdown language for the readme file, taking in all sections of answers
 // this function is defined outside of the prompt function, and is called within the try block of the prompt questions function. 
@@ -209,12 +218,12 @@ function markdownFormat(firstAnswers, secondAnswers, thirdAnswers) {
     const creditsFormat = creditsList.join('\n');
 
     // passing in the badge generator npm function for the license badge
-    const licenseBadge = badgeGenerate(thirdAnswers);
+    const licenseBadgePath = badgeGenerate(thirdAnswers);
     // we are using a template literal to create an entirely formated object with all of our user input concatenated into markdown for our ReadMe
     // Under Technologies we use our variables created for 'technologies' in the markdown list format we created    
     return `
 # ${firstAnswers.title}
-${licenseBadge}
+![License Badge] (${licenseBadgePath})
         
 ## Description
 
