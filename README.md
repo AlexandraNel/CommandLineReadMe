@@ -1,6 +1,6 @@
 
 # Command Line Read Me
-![License Badge](C:\Users\Alexa\desktop\CommandLineReadMe\license-badge.svg)
+![License Badge](./license-badge.svg)
         
 ## Description
 
