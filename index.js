@@ -1,11 +1,12 @@
 // version 8.2.4 of inquirer installed, below fs (file system) and inquirer are required into the project
 const fs = require('fs');
 const inquirer = require('inquirer');
+const { makeBadge, ValidationError } = require('badge-maker')
 
 // have created an async function to avoid errors with multiple instances of prompt.questions/then. 
 // also utilising try and catch for error handling
 // have used separate instances of prmpt with async in order to allow for exit of process if answered incorrectly etc
-
+console
 async function promptQuestions() {
     try {
 
@@ -101,13 +102,34 @@ async function promptQuestions() {
                 message: 'List the collaborators and links to their gitHub profiles \n !IMPORTANT, format each collaborater as follows [Name] (https://www.yourlink.com),\n note each name is within a square bracket [], each link is within brackets() and each entry ends with a comma ,',
             },
             {
-                type: 'input',
+                type: 'list',
                 name: 'license',
-                message: 'Let other developers know what type of license your project is using',
+                message: 'Choose a license for this application',
+                choices: [
+                    'Apache License 2.0',
+                    'GNU General Public License v3.0',
+                    'MIT License',
+                    'BSD 2-Clause "Simplified" License',
+                    'BSD 3-Clause "New" or "Revised" License',
+                    'Boost Software License 1.0',
+                    'Creative Commons Zero v1.0 Universal',
+                    'Eclipse Public License 2.0',
+                    'GNU Affero General Public Licnese v3.0',
+                    'GNU General Public License v2.0',
+                    'GNU Lesser General Public License v2.1',
+                    'Mozilla Public License 2.0',
+                    'The Unlicense',
+                ]
+            },
+            {
+                type: 'input',
+                name: 'tests',
+                message: 'Have you written any tests for this code? If so include instrcutions here. If not just write "n/a" \n If you wish to include a link to the file use [Name] (./link) structure',
             },
         ]);
         //    calling my markdown foramtting function in order to utilise it's returned content. write file required a string in order to write a file- and not a function
         const fileContent = markdownFormat(firstAnswers, secondAnswers, thirdAnswers);
+
 
         fs.writeFile('README.md', fileContent, err => {
             if (err) {
@@ -127,6 +149,50 @@ async function promptQuestions() {
     }
 };
 
+// creating a function that uses the response from teh license list inquirer prompt in order to gain the abbreviation for the licenses optioned.
+function licenseName(fullName) {
+    const fullToShort = {
+        'Apache License 2.0': 'Apache-2.0',
+        'GNU General Public License v3.0': 'GPL-3.0',
+        'MIT License': 'MIT',
+        'BSD 2-Clause "Simplified" License': 'BSD-2-Clause',
+        'BSD 3-Clause "New" or "Revised" License': 'BSD-3-Clause',
+        'Boost Software License 1.0': 'BSL-1.0',
+        'Creative Commons Zero v1.0 Universal': 'CC0-1.0',
+        'Eclipse Public License 2.0': 'EPL-2.0',
+        'GNU Affero General Public License v3.0': 'AGPL-3.0',
+        'GNU General Public License v2.0': 'GPL-2.0',
+        'GNU Lesser General Public License v2.1': 'LGPL-2.1',
+        'Mozilla Public License 2.0': 'MPL-2.0',
+        'The Unlicense': 'Unlicense',
+    };
+
+    if (fullToShort.hasOwnProperty(fullName)) {
+        return fullToShort[fullName];
+    } else {
+        return fullName;
+    }
+
+};
+
+//function to generate the badge for the license using the badge-maker npm
+function badgeGenerate(thirdAnswers) {
+    //running function to get the abbreviation for our chosen license, passing in the user input from thirdAsnwers.license
+    const licenseCode = licenseName(thirdAnswers.license)
+
+    // method for badge construction from badge-maker
+    const format = {
+        label: 'License',
+        message: licenseCode, //using the variable that runs the abbreviaion function as the message input
+        color: 'brightgreen',
+        style: 'flat',
+    }
+
+    const svg = makeBadge(format);
+    //returns our svg badge
+    return svg;
+}
+
 // This function transforms our user data into the required markdown language for the readme file, taking in all sections of answers
 // this function is defined outside of the prompt function, and is called within the try block of the prompt questions function. 
 // this means that we are not nesting unneccessary functions and can utilise this again if required.
@@ -136,25 +202,38 @@ function markdownFormat(firstAnswers, secondAnswers, thirdAnswers) {
     // As requested, our user has separated each technology with a comma and we use split() to transform these into an array
     const techList = thirdAnswers.technologies.split(',');
     // using map() we take each array item, add a markdown list '-' and then join the array into a string, seperating each item with a line break (\n)
-    const techFormat = techList.map(item => `-${item.trim()}`).join('\n');
+    const techFormat = techList.map(item => `- ${item.trim()}`).join('\n');
 
     // using split method on collaborators, have requested formatting from user entry
     const creditsList = thirdAnswers.credits.split(',');
     const creditsFormat = creditsList.join('\n');
 
+    // passing in the badge generator npm function for the license badge
+    const licenseBadge = badgeGenerate(thirdAnswers);
     // we are using a template literal to create an entirely formated object with all of our user input concatenated into markdown for our ReadMe
     // Under Technologies we use our variables created for 'technologies' in the markdown list format we created    
     return `
 # ${firstAnswers.title}
+${licenseBadge}
         
 ## Description
 
-Motivation: ${secondAnswers.motivationDescription} \n
-The Why: ${secondAnswers.whyDescription} \n
-Problem Solved:${secondAnswers.problemDescription} \n
-Lessons: ${secondAnswers.learnDescription} \n
+**Motivation:** ${secondAnswers.motivationDescription} \n
+**The Why:** ${secondAnswers.whyDescription} \n
+**Problem Solved:** ${secondAnswers.problemDescription} \n
+**Lessons:** ${secondAnswers.learnDescription} \n
 
-## Technologies 
+## Table of Contents
+
+> 1. Technologies \n
+> 2. Installation \n
+> 3. Usage \n
+> 4. Roadmap \n
+> 5. Support \n
+> 6. License \n
+> 7. Tests 
+
+## Technologies
 
 ${techFormat}
 
@@ -172,13 +251,21 @@ ${thirdAnswers.roadmap}
 
 ## Support
 
+${thirdAnswers.support}
+
+## Credits
+
 ${creditsFormat}
 
 ## License
         
 ${thirdAnswers.license}
 
-`;}
+## Tests
+${thirdAnswers.tests}
+
+`;
+}
 
 
 promptQuestions();
